@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AR Scene</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+    <!--<script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-aframe.prod.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.css" />
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    </style>
+  </head>
+  <body>
+    <div id="loading">🔍 Loading AR Scene...</div>
+
+    <a-scene
+      mindar-image="imageTargetSrc: ./assets/mindar/The_One_Ring.mind; autoStart: true;"
+      embedded
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: true"
+    >
+      <a-assets id="modelAssets"></a-assets>
+
+      <!-- This will be filled dynamically -->
+      <a-entity id="dynamicTargetContainer"></a-entity>
+
+      <a-camera position="0 0 0" look-controls="enabled"></a-camera>
+    </a-scene>
+
+    <script>
+      async function loadCards() {
+        const res = await fetch('./cards.json');
+        const cards = await res.json();
+
+        const container = document.querySelector('#dynamicTargetContainer');
+        const assets = document.querySelector('#modelAssets');
+
+        cards.forEach((card, index) => {
+          const modelId = `model-${index}`;
+
+          // Add model to asset manager
+          const asset = document.createElement('a-asset-item');
+          asset.setAttribute('id', modelId);
+          asset.setAttribute('src', card.model);
+          assets.appendChild(asset);
+
+          // Add MindAR image target
+          const target = document.createElement('a-entity');
+          target.setAttribute('mindar-image-target', `targetIndex: ${index}`);
+
+          const gltf = document.createElement('a-gltf-model');
+          gltf.setAttribute('src', `#${modelId}`);
+          gltf.setAttribute('scale', '0.1 0.1 0.1');
+          gltf.setAttribute('position', '0 0 0');
+
+          target.appendChild(gltf);
+          container.appendChild(target);
+        });
+      }
+
+      window.addEventListener('load', () => {
+        loadCards().then(() => {
+          document.getElementById('loading').style.display = 'none';
+        });
+      });
+    </script>
+  </body>
+</html>

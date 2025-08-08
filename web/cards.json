@@ -1,0 +1,7 @@
+[
+  {
+    "name": "The One Ring",
+    "model": "./assets/models/The_One_Ring.glb",
+    "marker": "./assets/mindar/The_One_Ring.mind"
+  }
+]

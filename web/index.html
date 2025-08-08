@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MTG AR Viewer</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
+  </head>
+  <body>
+    <button onclick="scanCard()">📷 Scan New Card</button>
+    
+    <a-scene mindar-image="imageTargetSrc: ./assets/mindar/targets.mind;" 
+             vr-mode-ui="enabled: false" 
+             device-orientation-permission-ui="enabled: true" 
+             embedded 
+             color-space="sRGB">
+      
+      <a-assets id="models"></a-assets>
+
+      <script>
+        async function loadCards() {
+          const res = await fetch('./cards.json');
+          const cards = await res.json();
+          const scene = document.querySelector('a-scene');
+          const assetRoot = './assets';
+
+          cards.forEach(card => {
+            const id = card.name.replace(/\s+/g, '_');
+
+            const modelAsset = document.createElement('a-asset-item');
+            modelAsset.setAttribute('id', `model-${id}`);
+            modelAsset.setAttribute('src', card.model);
+            document.getElementById('models').appendChild(modelAsset);
+
+            const marker = document.createElement('a-entity');
+            marker.setAttribute('mindar-image-target', `targetIndex: ${cards.indexOf(card)}`);
+            marker.innerHTML = `
+              <a-gltf-model src="#model-${id}" position="0 0 0" scale="0.5 0.5 0.5"></a-gltf-model>
+            `;
+            scene.appendChild(marker);
+          });
+        }
+
+        loadCards();
+
+        /* ALERT ONLY CODE REMOED TO CREATE ACTIVE LINK
+        function scanCard() {
+          // Trigger your backend endpoint (e.g., via webcam/photo input)
+          // Example: redirect to scan.html or trigger camera modal
+          alert("📷 Trigger card scan (coming soon)");
+        }
+        */
+        
+        // Trigger your backend endpoint (e.g., via webcam/photo input)
+        // Trigger your backend endpoint (e.g., via webcam/photo input)
+        function scanCard() {
+          window.location.href = "/scan.html";
+        }
+
+      </script>
+    </a-scene>
+  </body>
+</html>

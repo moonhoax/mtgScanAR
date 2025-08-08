@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MTG Card Scanner</title>
+  <script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #121212;
+      font-family: sans-serif;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 1rem 0;
+    }
+
+    #scanner-container {
+      position: relative;
+      width: 420px;
+      height: 588px; /* MTG card aspect ratio scaled */
+    }
+
+    video, #edge-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #edge-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    #overlay svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    #snap {
+      margin: 1rem;
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+
+    #canvas {
+      display: none;
+    }
+
+    #card-display img {
+      max-width: 100%;
+      margin-bottom: 1em;
+    }
+
+    @keyframes rotateBorder {
+      0%   { stroke: forestgreen; }
+      25%  { stroke: black; }
+      50%  { stroke: blue; }
+      75%  { stroke: red; }
+      100% { stroke: white; }
+    }
+
+    #card-border {
+      animation: rotateBorder 4s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <h1>Scan MTG Card</h1>
+
+  <div id="scanner-container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="edge-canvas" width="420" height="588"></canvas>
+
+    <div id="overlay">
+      <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <mask id="card-mask">
+            <rect width="100%" height="100%" fill="white" />
+            <rect x="5" y="5" width="90" height="130" rx="5" ry="5" fill="black" />
+          </mask>
+        </defs>
+
+        <!-- Bleed area darkened -->
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#card-mask)" />
+
+        <!-- Card cutout -->
+        <rect id="card-border"
+              x="5" y="5"
+              width="90" height="130"
+              rx="5" ry="5"
+              fill="rgba(255, 255, 255, 0.0)"
+              stroke="forestgreen"
+              stroke-width="1.5" />
+      </svg>
+    </div>
+  </div>
+
+  <button id="snap">📸 Take Picture</button>
+  <canvas id="canvas" width="1920" height="1080"></canvas>
+
+  <p id="status">Status: Waiting for photo...</p>
+  <pre id="result"></pre>
+
+  <div id="card-display"></div>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const edgeCanvas = document.getElementById("edge-canvas");
+    const snapBtn = document.getElementById("snap");
+    const statusText = document.getElementById("status");
+    const resultText = document.getElementById("result");
+    const cardDisplay = document.getElementById("card-display");
+    const cardBorder = document.getElementById("card-border");
+
+    let processing = false;
+    let src, dst, cap;
+
+    function processVideo() {
+      if (!processing) return;
+
+      cap.read(src);
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+      cv.Canny(dst, dst, 50, 150);
+      cv.imshow("edge-canvas", dst);
+
+      requestAnimationFrame(processVideo);
+    }
+
+    function onOpenCvReady() {
+      video.onloadedmetadata = () => {
+        cap = new cv.VideoCapture(video);
+        src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+        dst = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC1);
+        processing = true;
+        processVideo();
+      };
+    }
+
+    window.onOpenCvReady = onOpenCvReady;
+
+    // Access camera with high resolution
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 2560 },
+        height: { ideal: 1440 },
+        facingMode: "environment"
+      }
+    })
+    .then(stream => {
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      console.error("Camera access failed:", err);
+      alert("Could not access the camera. Please allow camera permissions.");
+    });
+
+    snapBtn.addEventListener("click", async () => {
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        statusText.innerText = "Uploading...";
+        const formData = new FormData();
+        const timestamp = Date.now();
+        formData.append("file", blob, `capture_${timestamp}.jpg`);
+
+        try {
+          const response = await fetch("/scan/", {
+            method: "POST",
+            body: formData
+          });
+
+          const result = await response.json();
+          resultText.innerText = JSON.stringify(result, null, 2);
+          statusText.innerText = "Scan complete.";
+
+          // Simulate mask detection result
+          if (result.card_name) {
+            cardBorder.setAttribute("stroke", "purple");
+            cardBorder.setAttribute("stroke-width", "2.5");
+            cardBorder.style.animation = "none"; // stop animation
+          } else {
+            cardBorder.setAttribute("stroke", "forestgreen");
+            cardBorder.setAttribute("stroke-width", "1.5");
+            cardBorder.style.animation = "rotateBorder 4s linear infinite";
+          }
+
+          if (result.card_name && result.image_url) {
+            localStorage.setItem("scanned_card", JSON.stringify(result));
+            cardDisplay.innerHTML = `
+              <h2>${result.card_name}</h2>
+              <img src="${result.image_url}" alt="${result.card_name}">
+              <button id="launch-ar" style="padding: 10px 20px; font-size: 1rem;">🚀 Launch AR Card</button>
+            `;
+
+            document.getElementById("launch-ar").addEventListener("click", () => {
+              window.location.href = "/ar-scene.html";
+            });
+          } else {
+            cardDisplay.innerHTML = "<p style='color:red;'>❌ Could not recognize a valid card.</p>";
+          }
+        } catch (err) {
+          console.error("Upload failed:", err);
+          statusText.innerText = "Error uploading image.";
+          cardDisplay.innerHTML = "<p style='color:red;'>❌ Upload or recognition failed.</p>";
+        }
+      }, "image/jpeg");
+    });
+  </script>
+</body>
+</html>
