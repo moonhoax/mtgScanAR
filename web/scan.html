@@ -458,7 +458,7 @@
         formData.append("file", blob, `capture_${timestamp}.jpg`);
 
         const uploadStartTime = performance.now();
-        const response = await fetch("/scan/", {
+        const response = await fetch("https://mtg-ar-ac5ba1441f06.herokuapp.com/scan/", {
           method: "POST",
           body: formData
         });
