@@ -36,7 +36,7 @@ CAMERA_FPS = 30
 MAX_WEBSOCKET_CLIENTS = 10  # Max concurrent websocket connections allowed
 
 # Directory setup
-#BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
+BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
 #WEB_DIR = BASE_DIR / "web"
 IMAGES_CACHE = Path("/tmp/cache/images")
 CAPTURE_DIR = Path("/tmp/cache/captures")
