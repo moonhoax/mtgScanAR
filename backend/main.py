@@ -38,12 +38,12 @@ MAX_WEBSOCKET_CLIENTS = 10  # Max concurrent websocket connections allowed
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
 WEB_DIR = BASE_DIR / "web"
-IMAGE_CACHE_DIR = Path("/tmp/cache/images")
+IMAGES_CACHE = Path("/tmp/cache/images")
 CAPTURE_DIR = Path("/tmp/cache/captures")
-JSON_CACHE_DIR = Path("/tmp/cache/json_cache")
+JSON_CACHE = Path("/tmp/cache/json_cache")
 
 # Create all required directories
-for directory in [IMAGE_CACHE_DIR, CAPTURE_DIR, JSON_CACHE_DIR]:
+for directory in [IMAGES_CACHE, CAPTURE_DIR, JSON_CACHE]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # Store active WebSocket connections
@@ -113,7 +113,7 @@ async def scan_card(file: UploadFile = File(...)):
     # Save uploaded capture to cache
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     raw_filename = f"upload_raw_{timestamp}_{file.filename}"
-    raw_path = IMAGE_CACHE_DIR / raw_filename
+    raw_path = IMAGES_CACHE / raw_filename
     
     try:
         with open(raw_path, "wb") as buffer:
@@ -354,7 +354,7 @@ async def scan_multiple_cards(files: List[UploadFile] = File(...)):
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"batch_{timestamp}_{file.filename}"
-        file_path = IMAGE_CACHE_DIR / filename
+        file_path = IMAGES_CACHE / filename
         
         try:
             with open(file_path, "wb") as f:
@@ -448,7 +448,7 @@ async def debug_ocr_region(region_name: str, file: UploadFile = File(...)):
     # Save uploaded file temporarily
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_filename = f"debug_temp_{timestamp}_{file.filename}"
-    temp_path = IMAGE_CACHE_DIR / temp_filename
+    temp_path = IMAGES_CACHE / temp_filename
     
     try:
         with open(temp_path, "wb") as buffer:
@@ -524,7 +524,7 @@ async def get_capture(filename: str):
 @app.get("/debug/images/{filename}")
 async def get_debug_image(filename: str):
     """Serve debug images from enhanced OCR processing"""
-    file_path = IMAGE_CACHE_DIR / filename
+    file_path = IMAGES_CACHE / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Debug image not found")
     return FileResponse(file_path)
