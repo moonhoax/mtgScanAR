@@ -36,8 +36,8 @@ CAMERA_FPS = 30
 MAX_WEBSOCKET_CLIENTS = 10  # Max concurrent websocket connections allowed
 
 # Directory setup
-BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
-WEB_DIR = BASE_DIR / "web"
+#BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
+#WEB_DIR = BASE_DIR / "web"
 IMAGES_CACHE = Path("/tmp/cache/images")
 CAPTURE_DIR = Path("/tmp/cache/captures")
 JSON_CACHE = Path("/tmp/cache/json_cache")
@@ -555,7 +555,7 @@ async def health_check():
 # Mount static files
 app.mount("/assets", StaticFiles(directory="/tmp/public/assets"), name="assets")
 #app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
+#app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 
 if __name__ == "__main__":    
     import os
