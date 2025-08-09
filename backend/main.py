@@ -553,7 +553,8 @@ async def health_check():
         }
 
 # Mount static files
-app.mount("/assets", StaticFiles(directory="/tmp/public/assets"), name="assets")
+app.mount("/assets", StaticFiles(directory="/public/assets"), name="assets")
+#app.mount("/assets", StaticFiles(directory="/tmp/public/assets"), name="assets")
 #app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
 #app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 

@@ -1,9 +1,10 @@
 // js/app.js
 const API_BASE = 'https://mtg-ar-ac5ba1441f06.herokuapp.com/';
+const mindarDir = 'https://mtg-ar-ac5ba1441f06.herokuapp.com/public/assets/mindar';
+const modelsDir = 'https://mtg-ar-ac5ba1441f06.herokuapp.com/public/assets/models/';
+const dataFile = 'https://mtg-ar-ac5ba1441f06.herokuapp.com/cache/cards.json'; // contains list of scanned cards
 
-const mindarDir = '/tmp/public/assets/mindar';
-const modelsDir = '/tmp/public/assets/models/';
-const dataFile = '/tmp/cache/cards.json'; // contains list of scanned cards
+//const dataFile = '/tmp/cache/cards.json'; // contains list of scanned cards
 
 async function loadCards() {
   const response = await fetch(dataFile);

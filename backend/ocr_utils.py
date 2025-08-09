@@ -58,8 +58,8 @@ def get_timestamped_path(base_dir: Path, base_name: str, ext: str = ".jpg") -> P
 
 # Define directories
 BASE_DIR = Path(__file__).resolve().parent.parent
-MARKER_DIR = Path("/tmp/public/assets/mindar")
-MODEL_DIR = Path("/tmp/public/assets/models")
+MARKER_DIR = Path("/public/assets/mindar")
+MODEL_DIR = Path("/public/assets/models")
 CACHE_DIR = Path("/tmp/cache")
 IMAGES_CACHE = Path("/tmp/cache/images")
 JSON_CACHE = Path("/tmp/cache/json_cache")
