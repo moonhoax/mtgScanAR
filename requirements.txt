@@ -30,3 +30,4 @@ typing_extensions==4.14.1
 urllib3==2.5.0
 uvicorn==0.35.0
 git-filter-repo==2.47.0
+gunicorn
