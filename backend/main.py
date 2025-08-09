@@ -16,7 +16,7 @@ from datetime import datetime
 app = FastAPI(
     title="MTG Card Scanner Camera API",
     description="Real-time Magic: The Gathering card scanning with camera support and AR integration",
-    version="2.0.0"
+    version="3.0.0"  # Updated version for enhanced features
 )
 
 # CORS middleware
@@ -37,10 +37,13 @@ MAX_WEBSOCKET_CLIENTS = 10  # Max concurrent websocket connections allowed
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
 WEB_DIR = BASE_DIR / "web"
-IMAGE_CACHE_DIR = BASE_DIR / "cache"
+IMAGE_CACHE_DIR = BASE_DIR / "cache" / "images"  # Updated to match enhanced script
 CAPTURE_DIR = BASE_DIR / "cache" / "captures"
-IMAGE_CACHE_DIR.mkdir(exist_ok=True)
-CAPTURE_DIR.mkdir(exist_ok=True)
+JSON_CACHE_DIR = BASE_DIR / "cache" / "json_cache"  # New cache directory
+
+# Create all required directories
+for directory in [IMAGE_CACHE_DIR, CAPTURE_DIR, JSON_CACHE_DIR]:
+    directory.mkdir(parents=True, exist_ok=True)
 
 # Store active WebSocket connections
 active_connections: List[WebSocket] = []
@@ -98,47 +101,60 @@ async def shutdown_event():
 @app.post("/scan/")
 async def scan_card(file: UploadFile = File(...)):
     """
-    Scan a Magic: The Gathering card image and return AR-ready data
-    Enhanced with automatic card detection and perspective correction
+    Enhanced: Scan a Magic: The Gathering card image using the new 5-step pipeline
+    Now includes caching, improved OCR, and comprehensive logging
     """
-    
-    # Validate file type
+    # Validate file type early
     if not file.content_type.startswith('image/'):
         await file.close()
         raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Save uploaded image to cache
+
+    # Save uploaded capture to cache
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"upload_{timestamp}_{file.filename}"
-    file_path = IMAGE_CACHE_DIR / filename
+    raw_filename = f"upload_raw_{timestamp}_{file.filename}"
+    raw_path = IMAGE_CACHE_DIR / raw_filename
     
     try:
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
+        with open(raw_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         await file.close()
     except Exception as e:
         await file.close()
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
-    
+
+    print(f"📷 Processing uploaded file: {raw_path}")
+
+    # Use the enhanced processing pipeline (Steps 1-5 with caching)
     try:
-        # Run the enhanced processing pipeline
-        result = ocr_utils.process_camera_capture(str(file_path))
+        result = ocr_utils.process_camera_capture(str(raw_path))
+        
+        # Handle error results
+        if isinstance(result, dict) and 'error' in result:
+            raise HTTPException(status_code=422, detail=result['error'])
         
         # Add processing metadata
         result['processing_timestamp'] = timestamp
         result['source'] = 'file_upload'
+        result['raw_filename'] = raw_filename
+        
+        # Log successful processing
+        print(f"✅ Upload processing complete:")
+        print(f"   Card: {result.get('card_name', 'Unknown')}")
+        print(f"   Cache Hit: {result.get('cache_hit', False)}")
+        print(f"   Assets Available: {result.get('assets_available', False)}")
         
         return JSONResponse(content=result)
-        
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
-        # Clean up on error
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+        print(f"❌ Processing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced processing error: {str(e)}")
 
 @app.post("/camera/capture/")
 async def capture_from_camera():
     """
-    Capture and process a card image directly from device camera
+    Enhanced: Capture and process a card image directly from device camera using new pipeline
     """
     if not camera_manager.is_active:
         if not camera_manager.start_camera():
@@ -157,24 +173,38 @@ async def capture_from_camera():
     cv2.imwrite(str(file_path), frame)
     
     try:
-        # Process the captured image
+        # Use the enhanced processing pipeline
         result = ocr_utils.process_camera_capture(str(file_path))
+        
+        # Handle error results
+        if isinstance(result, dict) and 'error' in result:
+            raise HTTPException(status_code=422, detail=result['error'])
         
         # Add processing metadata
         result['processing_timestamp'] = timestamp
         result['source'] = 'camera_capture'
         result['captured_image'] = f"/captures/{filename}"
         
+        # Log successful processing
+        print(f"✅ Camera capture processing complete:")
+        print(f"   Card: {result.get('card_name', 'Unknown')}")
+        print(f"   Cache Hit: {result.get('cache_hit', False)}")
+        print(f"   OCR Confidences: {result.get('ocr_confidences', {})}")
+        
         return JSONResponse(content=result)
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
+        # Clean up failed capture
         file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Camera processing error: {str(e)}")
+        print(f"❌ Camera processing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Enhanced camera processing error: {str(e)}")
 
 @app.websocket("/ws/camera-stream/")
 async def camera_stream_websocket(websocket: WebSocket):
     """
-    WebSocket endpoint for real-time camera streaming and card detection
+    Enhanced: WebSocket endpoint with improved card detection using new pipeline
     """
     if len(active_connections) >= MAX_WEBSOCKET_CLIENTS:
         await websocket.close(code=1008, reason="Max connections reached")
@@ -183,7 +213,7 @@ async def camera_stream_websocket(websocket: WebSocket):
     await websocket.accept()
     active_connections.append(websocket)
     
-    print("📱 Camera stream WebSocket connected")
+    print("📱 Enhanced camera stream WebSocket connected")
     
     try:
         if not camera_manager.is_active:
@@ -222,7 +252,7 @@ async def camera_stream_websocket(websocket: WebSocket):
                     message = await asyncio.wait_for(websocket.receive_json(), timeout=0.033)  # ~30 FPS
                     
                     if message.get("action") == "capture":
-                        # Process current frame for card detection
+                        # Process current frame using enhanced pipeline
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         filename = f"stream_capture_{timestamp}.jpg"
                         file_path = CAPTURE_DIR / filename
@@ -231,19 +261,31 @@ async def camera_stream_websocket(websocket: WebSocket):
                         
                         try:
                             result = ocr_utils.process_camera_capture(str(file_path))
-                            result['processing_timestamp'] = timestamp
-                            result['source'] = 'camera_stream'
-                            result['captured_image'] = f"/captures/{filename}"
                             
-                            await websocket.send_json({
-                                "type": "scan_result",
-                                **result
-                            })
+                            # Handle successful results
+                            if isinstance(result, dict) and result.get('success'):
+                                result['processing_timestamp'] = timestamp
+                                result['source'] = 'camera_stream'
+                                result['captured_image'] = f"/captures/{filename}"
+                                
+                                await websocket.send_json({
+                                    "type": "scan_result",
+                                    **result
+                                })
+                                
+                                print(f"📱 Stream scan success: {result.get('card_name', 'Unknown')}")
+                            else:
+                                # Handle error results
+                                error_msg = result.get('error', 'Unknown processing error') if isinstance(result, dict) else 'Processing failed'
+                                await websocket.send_json({
+                                    "type": "scan_error",
+                                    "error": error_msg
+                                })
                             
                         except Exception as e:
                             await websocket.send_json({
                                 "type": "scan_error",
-                                "error": str(e)
+                                "error": f"Enhanced processing failed: {str(e)}"
                             })
                 
                 except asyncio.TimeoutError:
@@ -263,7 +305,7 @@ async def camera_stream_websocket(websocket: WebSocket):
                 break
                 
     except WebSocketDisconnect:
-        print("📱 Camera stream WebSocket disconnected")
+        print("📱 Enhanced camera stream WebSocket disconnected")
     finally:
         if websocket in active_connections:
             active_connections.remove(websocket)
@@ -292,8 +334,8 @@ async def camera_status():
 
 @app.post("/scan-batch/")
 async def scan_multiple_cards(files: List[UploadFile] = File(...)):
-    """Scan multiple card images at once"""
-    if len(files) > 10:  # Reasonable limit for camera captures
+    """Enhanced: Scan multiple card images using new pipeline with caching benefits"""
+    if len(files) > 10:  # Reasonable limit for batch processing
         for file in files:
             await file.close()
         raise HTTPException(status_code=400, detail="Maximum 10 files per batch")
@@ -318,10 +360,25 @@ async def scan_multiple_cards(files: List[UploadFile] = File(...)):
                 shutil.copyfileobj(file.file, f)
             await file.close()
             
+            # Use enhanced processing pipeline
             result = ocr_utils.process_camera_capture(str(file_path))
-            result['filename'] = file.filename
-            result['processing_timestamp'] = timestamp
-            results.append(result)
+            
+            # Handle both success and error cases
+            if isinstance(result, dict):
+                if 'error' in result:
+                    results.append({
+                        'filename': file.filename,
+                        'error': result['error']
+                    })
+                else:
+                    result['filename'] = file.filename
+                    result['processing_timestamp'] = timestamp
+                    results.append(result)
+            else:
+                results.append({
+                    'filename': file.filename,
+                    'error': 'Unexpected result format'
+                })
             
         except Exception as e:
             results.append({
@@ -329,7 +386,9 @@ async def scan_multiple_cards(files: List[UploadFile] = File(...)):
                 'error': f'Processing failed: {str(e)}'
             })
         finally:
-            file_path.unlink(missing_ok=True)
+            # Clean up temporary file
+            if file_path.exists():
+                file_path.unlink(missing_ok=True)
     
     return JSONResponse(content={'results': results})
 
@@ -354,6 +413,105 @@ async def check_card_assets(card_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Asset check failed: {str(e)}")
 
+# NEW ENDPOINTS FOR ENHANCED FEATURES
+
+@app.get("/cache/stats/")
+async def get_cache_stats():
+    """Get statistics about the enhanced caching system"""
+    try:
+        stats = ocr_utils.get_cache_stats()
+        return JSONResponse(content=stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cache stats failed: {str(e)}")
+
+@app.post("/cache/clear/")
+async def clear_cache(older_than_days: int = 7):
+    """Clear cache files older than specified days"""
+    try:
+        removed_count = ocr_utils.clear_cache(older_than_days)
+        return JSONResponse(content={
+            "status": "success",
+            "removed_files": removed_count,
+            "older_than_days": older_than_days
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cache clear failed: {str(e)}")
+
+@app.post("/debug/ocr/{region_name}/")
+async def debug_ocr_region(region_name: str, file: UploadFile = File(...)):
+    """Debug OCR performance on specific card regions"""
+    if not file.content_type.startswith('image/'):
+        await file.close()
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Save uploaded file temporarily
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    temp_filename = f"debug_temp_{timestamp}_{file.filename}"
+    temp_path = IMAGE_CACHE_DIR / temp_filename
+    
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        await file.close()
+        
+        # Run debug function
+        result = ocr_utils.debug_ocr_region(str(temp_path), region_name)
+        
+        if result is None:
+            raise HTTPException(status_code=422, detail=f"Could not extract region '{region_name}' from image")
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Debug OCR failed: {str(e)}")
+    finally:
+        # Clean up temporary file
+        if temp_path.exists():
+            temp_path.unlink(missing_ok=True)
+
+@app.get("/logs/ocr-failures/")
+async def get_ocr_failures():
+    """Get recent OCR failure logs"""
+    try:
+        ocr_fails_log = BASE_DIR / "cache" / "ocr_fails.txt"
+        if not ocr_fails_log.exists():
+            return JSONResponse(content={"failures": []})
+        
+        with open(ocr_fails_log, 'r', encoding='utf-8') as f:
+            failures = f.readlines()[-100:]  # Last 100 failures
+        
+        return JSONResponse(content={
+            "failures": [line.strip() for line in failures],
+            "total_shown": len(failures)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read failure logs: {str(e)}")
+
+@app.get("/logs/scanner/")
+async def get_scanner_logs():
+    """Get recent scanner attempt logs"""
+    try:
+        import csv
+        scanner_log = BASE_DIR / "cache" / "scanner_log.csv"
+        if not scanner_log.exists():
+            return JSONResponse(content={"logs": []})
+        
+        logs = []
+        with open(scanner_log, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                logs.append(row)
+        
+        # Return last 50 entries
+        return JSONResponse(content={
+            "logs": logs[-50:],
+            "total_shown": len(logs[-50:])
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read scanner logs: {str(e)}")
+
 @app.get("/captures/{filename}")
 async def get_capture(filename: str):
     """Serve captured images"""
@@ -364,7 +522,7 @@ async def get_capture(filename: str):
 
 @app.get("/debug/images/{filename}")
 async def get_debug_image(filename: str):
-    """Serve debug images from OCR processing"""
+    """Serve debug images from enhanced OCR processing"""
     file_path = IMAGE_CACHE_DIR / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Debug image not found")
@@ -372,13 +530,26 @@ async def get_debug_image(filename: str):
 
 @app.get("/health/")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy", 
-        "service": "MTG Card Scanner Camera API",
-        "camera_active": camera_manager.is_active,
-        "active_connections": len(active_connections)
-    }
+    """Enhanced health check with cache statistics"""
+    try:
+        cache_stats = ocr_utils.get_cache_stats()
+        return {
+            "status": "healthy", 
+            "service": "Enhanced MTG Card Scanner Camera API",
+            "version": "3.0.0",
+            "camera_active": camera_manager.is_active,
+            "active_connections": len(active_connections),
+            "cache_stats": cache_stats
+        }
+    except Exception as e:
+        return {
+            "status": "degraded",
+            "service": "Enhanced MTG Card Scanner Camera API", 
+            "version": "3.0.0",
+            "camera_active": camera_manager.is_active,
+            "active_connections": len(active_connections),
+            "cache_error": str(e)
+        }
 
 # Mount static files
 app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
@@ -386,4 +557,6 @@ app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
+    print("🚀 Starting Enhanced MTG Card Scanner API v3.0.0")
+    print("📊 Features: 5-step OCR pipeline, image hashing, JSON caching, enhanced logging")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

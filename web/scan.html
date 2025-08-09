@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MTG Card Scanner</title>
+  <title>MTG Card Scanner - Enhanced</title>
   <script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
 
   <style>
@@ -60,10 +60,34 @@
       height: 100%;
     }
 
+    /* Enhanced button styling */
     #snap {
       margin: 1rem;
-      padding: 10px 20px;
-      font-size: 1rem;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    #snap:hover {
+      background: linear-gradient(45deg, #45a049, #4CAF50);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    }
+
+    #snap:active {
+      transform: translateY(0);
+    }
+
+    #snap:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
     }
 
     #canvas {
@@ -73,23 +97,160 @@
     #card-display img {
       max-width: 100%;
       margin-bottom: 1em;
+      border-radius: 8px;
     }
 
+    /* Enhanced status styling */
+    #status {
+      font-size: 1rem;
+      margin: 1rem;
+      padding: 8px 16px;
+      border-radius: 4px;
+      min-height: 20px;
+      transition: all 0.3s ease;
+    }
+
+    #status.waiting {
+      background-color: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+      border: 1px solid #ffc107;
+    }
+
+    #status.processing {
+      background-color: rgba(33, 150, 243, 0.2);
+      color: #2196f3;
+      border: 1px solid #2196f3;
+    }
+
+    #status.success {
+      background-color: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+      border: 1px solid #4caf50;
+    }
+
+    #status.error {
+      background-color: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+      border: 1px solid #f44336;
+    }
+
+    /* Enhanced result display */
+    #result {
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 1rem;
+      margin: 0 1rem;
+      max-width: 500px;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    #card-display {
+      margin: 1rem;
+      text-align: center;
+    }
+
+    #card-display h2 {
+      margin-bottom: 0.5rem;
+      color: #ffc107;
+    }
+
+    #launch-ar {
+      background: linear-gradient(45deg, #9c27b0, #673ab7);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    #launch-ar:hover {
+      background: linear-gradient(45deg, #673ab7, #9c27b0);
+      transform: translateY(-2px);
+    }
+
+    /* Card border animations */
     @keyframes rotateBorder {
       0%   { stroke: forestgreen; }
-      25%  { stroke: black; }
-      50%  { stroke: blue; }
-      75%  { stroke: red; }
-      100% { stroke: white; }
+      25%  { stroke: #2196f3; }
+      50%  { stroke: #ff9800; }
+      75%  { stroke: #f44336; }
+      100% { stroke: forestgreen; }
+    }
+
+    @keyframes successPulse {
+      0%, 100% { stroke: #9c27b0; opacity: 1; }
+      50% { stroke: #673ab7; opacity: 0.7; }
     }
 
     #card-border {
       animation: rotateBorder 4s linear infinite;
+      transition: all 0.5s ease;
+    }
+
+    #card-border.detected {
+      animation: successPulse 2s ease-in-out infinite;
+      stroke-width: 3;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      border: 3px solid #333;
+      border-top: 3px solid #2196f3;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Debug info panel */
+    #debug-info {
+      background-color: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 0.5rem;
+      margin: 0.5rem;
+      font-size: 0.75rem;
+      max-width: 500px;
+      display: none;
+    }
+
+    #debug-toggle {
+      background: none;
+      border: 1px solid #666;
+      color: #ccc;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+
+    .error-message {
+      color: #f44336;
+      background-color: rgba(244, 67, 54, 0.1);
+      border: 1px solid #f44336;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin: 0.5rem;
     }
   </style>
 </head>
 <body>
-  <h1>Scan MTG Card</h1>
+  <h1>🔍 MTG Card Scanner</h1>
 
   <div id="scanner-container">
     <video id="video" autoplay playsinline></video>
@@ -107,7 +268,7 @@
         <!-- Bleed area darkened -->
         <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#card-mask)" />
 
-        <!-- Card cutout -->
+        <!-- Card cutout with enhanced styling -->
         <rect id="card-border"
               x="5" y="5"
               width="90" height="130"
@@ -115,6 +276,14 @@
               fill="rgba(255, 255, 255, 0.0)"
               stroke="forestgreen"
               stroke-width="1.5" />
+
+        <!-- Corner indicators -->
+        <g id="corner-indicators" opacity="0.6">
+          <path d="M 5 15 L 5 10 Q 5 5 10 5 L 15 5" stroke="white" stroke-width="1" fill="none"/>
+          <path d="M 85 5 L 90 5 Q 95 5 95 10 L 95 15" stroke="white" stroke-width="1" fill="none"/>
+          <path d="M 95 125 L 95 130 Q 95 135 90 135 L 85 135" stroke="white" stroke-width="1" fill="none"/>
+          <path d="M 15 135 L 10 135 Q 5 135 5 130 L 5 125" stroke="white" stroke-width="1" fill="none"/>
+        </g>
       </svg>
     </div>
   </div>
@@ -122,9 +291,12 @@
   <button id="snap">📸 Take Picture</button>
   <canvas id="canvas" width="1920" height="1080"></canvas>
 
-  <p id="status">Status: Waiting for photo...</p>
-  <pre id="result"></pre>
+  <p id="status" class="waiting">Status: Position card in the green outline above</p>
 
+  <button id="debug-toggle">🔧 Toggle Debug Info</button>
+  <div id="debug-info"></div>
+
+  <pre id="result"></pre>
   <div id="card-display"></div>
 
   <script>
@@ -136,101 +308,274 @@
     const resultText = document.getElementById("result");
     const cardDisplay = document.getElementById("card-display");
     const cardBorder = document.getElementById("card-border");
+    const debugInfo = document.getElementById("debug-info");
+    const debugToggle = document.getElementById("debug-toggle");
 
     let processing = false;
     let src, dst, cap;
+    let debugMode = false;
+
+    // Debug toggle
+    debugToggle.addEventListener("click", () => {
+      debugMode = !debugMode;
+      debugInfo.style.display = debugMode ? "block" : "none";
+      debugToggle.textContent = debugMode ? "🔧 Hide Debug" : "🔧 Show Debug";
+    });
+
+    function updateStatus(message, type = 'waiting') {
+      statusText.textContent = message;
+      statusText.className = type;
+    }
+
+    function updateDebugInfo(info) {
+      if (debugMode) {
+        debugInfo.innerHTML = `
+          <strong>Debug Information:</strong><br>
+          ${Object.entries(info).map(([key, value]) => 
+            `${key}: ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}`
+          ).join('<br>')}
+        `;
+      }
+    }
+
+    function setCardBorderState(state) {
+      cardBorder.classList.remove('detected');
+      
+      switch(state) {
+        case 'scanning':
+          cardBorder.style.animation = "rotateBorder 4s linear infinite";
+          cardBorder.setAttribute("stroke", "forestgreen");
+          cardBorder.setAttribute("stroke-width", "1.5");
+          break;
+        case 'detected':
+          cardBorder.classList.add('detected');
+          cardBorder.style.animation = "successPulse 2s ease-in-out infinite";
+          break;
+        case 'error':
+          cardBorder.setAttribute("stroke", "#f44336");
+          cardBorder.setAttribute("stroke-width", "2");
+          cardBorder.style.animation = "none";
+          break;
+      }
+    }
 
     function processVideo() {
       if (!processing) return;
 
-      cap.read(src);
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
-      cv.Canny(dst, dst, 50, 150);
-      cv.imshow("edge-canvas", dst);
+      try {
+        cap.read(src);
+        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+        cv.Canny(dst, dst, 50, 150);
+        cv.imshow("edge-canvas", dst);
+      } catch (error) {
+        console.error("OpenCV processing error:", error);
+      }
 
       requestAnimationFrame(processVideo);
     }
 
     function onOpenCvReady() {
+      console.log("OpenCV is ready");
       video.onloadedmetadata = () => {
-        cap = new cv.VideoCapture(video);
-        src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-        dst = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC1);
-        processing = true;
-        processVideo();
+        try {
+          cap = new cv.VideoCapture(video);
+          src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+          dst = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC1);
+          processing = true;
+          processVideo();
+          updateStatus("Camera ready - position card in green outline");
+        } catch (error) {
+          console.error("OpenCV initialization error:", error);
+          updateStatus("OpenCV initialization failed", "error");
+        }
       };
     }
 
     window.onOpenCvReady = onOpenCvReady;
 
-    // Access camera with high resolution
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 2560 },
-        height: { ideal: 1440 },
-        facingMode: "environment"
+    // Enhanced camera access with better error handling
+    async function initializeCamera() {
+      try {
+        updateStatus("Requesting camera access...", "processing");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 2560 },
+            height: { ideal: 1440 },
+            facingMode: "environment"
+          }
+        });
+        
+        video.srcObject = stream;
+        updateStatus("Camera initialized - loading OpenCV...", "processing");
+        
+        // Update debug info with stream details
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        updateDebugInfo({
+          cameraResolution: `${settings.width}x${settings.height}`,
+          facingMode: settings.facingMode,
+          deviceId: settings.deviceId?.substring(0, 8) + "..."
+        });
+        
+      } catch (err) {
+        console.error("Camera access failed:", err);
+        const errorMsg = err.name === 'NotAllowedError' 
+          ? "Camera permission denied. Please allow camera access and refresh."
+          : `Camera error: ${err.message}`;
+        
+        updateStatus(errorMsg, "error");
+        cardDisplay.innerHTML = `<div class="error-message">${errorMsg}</div>`;
       }
-    })
-    .then(stream => {
-      video.srcObject = stream;
-    })
-    .catch(err => {
-      console.error("Camera access failed:", err);
-      alert("Could not access the camera. Please allow camera permissions.");
-    });
+    }
+
+    // Initialize camera
+    initializeCamera();
 
     snapBtn.addEventListener("click", async () => {
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (snapBtn.disabled) return;
+      
+      // Disable button during processing
+      snapBtn.disabled = true;
+      snapBtn.innerHTML = '<div class="spinner"></div>Processing...';
+      
+      try {
+        updateStatus("📸 Capturing image...", "processing");
+        setCardBorderState('scanning');
+        
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob(async (blob) => {
-        statusText.innerText = "Uploading...";
+        // Convert to blob and upload
+        const blob = await new Promise(resolve => {
+          canvas.toBlob(resolve, "image/jpeg", 0.9);
+        });
+        
+        updateStatus("🔍 Analyzing card...", "processing");
+        
         const formData = new FormData();
         const timestamp = Date.now();
         formData.append("file", blob, `capture_${timestamp}.jpg`);
 
-        try {
-          const response = await fetch("/scan/", {
-            method: "POST",
-            body: formData
-          });
+        const uploadStartTime = performance.now();
+        const response = await fetch("/scan/", {
+          method: "POST",
+          body: formData
+        });
 
-          const result = await response.json();
-          resultText.innerText = JSON.stringify(result, null, 2);
-          statusText.innerText = "Scan complete.";
+        const uploadTime = Math.round(performance.now() - uploadStartTime);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-          // Simulate mask detection result
-          if (result.card_name) {
-            cardBorder.setAttribute("stroke", "purple");
-            cardBorder.setAttribute("stroke-width", "2.5");
-            cardBorder.style.animation = "none"; // stop animation
-          } else {
-            cardBorder.setAttribute("stroke", "forestgreen");
-            cardBorder.setAttribute("stroke-width", "1.5");
-            cardBorder.style.animation = "rotateBorder 4s linear infinite";
-          }
+        const result = await response.json();
+        
+        // Update debug info
+        updateDebugInfo({
+          uploadTime: `${uploadTime}ms`,
+          responseSize: `${JSON.stringify(result).length} chars`,
+          processingMethod: result.processing_method || 'unknown',
+          ocrConfidence: result.ocr_confidence || 'N/A',
+          cardDetected: result.card_detected || false
+        });
+        
+        // Display results
+        resultText.textContent = JSON.stringify(result, null, 2);
+        
+        if (result.success && result.card_name) {
+          updateStatus(`✅ Detected: ${result.card_name}`, "success");
+          setCardBorderState('detected');
+          
+          // Store for AR scene
+          localStorage.setItem("scanned_card", JSON.stringify(result));
+          
+          // Display card info
+          cardDisplay.innerHTML = `
+            <h2>${result.card_name}</h2>
+            ${result.image_url ? `<img src="${result.image_url}" alt="${result.card_name}">` : ''}
+            <div style="margin: 1rem 0;">
+              <strong>Assets Status:</strong><br>
+              Marker (.mind): ${result.marker_exists ? '✅' : '❌'}<br>
+              Model (.glb): ${result.model_exists ? '✅' : '❌'}<br>
+              AR Ready: ${result.assets_available ? '✅ Yes' : '❌ No'}
+            </div>
+            ${result.assets_available ? 
+              '<button id="launch-ar">🚀 Launch AR Experience</button>' : 
+              '<p style="color: orange;">⚠️ AR assets not available for this card</p>'
+            }
+          `;
 
-          if (result.card_name && result.image_url) {
-            localStorage.setItem("scanned_card", JSON.stringify(result));
-            cardDisplay.innerHTML = `
-              <h2>${result.card_name}</h2>
-              <img src="${result.image_url}" alt="${result.card_name}">
-              <button id="launch-ar" style="padding: 10px 20px; font-size: 1rem;">🚀 Launch AR Card</button>
-            `;
-
-            document.getElementById("launch-ar").addEventListener("click", () => {
+          // Add AR launch functionality
+          const launchBtn = document.getElementById("launch-ar");
+          if (launchBtn) {
+            launchBtn.addEventListener("click", () => {
+              updateStatus("🚀 Launching AR experience...", "processing");
               window.location.href = "/ar-scene.html";
             });
-          } else {
-            cardDisplay.innerHTML = "<p style='color:red;'>❌ Could not recognize a valid card.</p>";
           }
-        } catch (err) {
-          console.error("Upload failed:", err);
-          statusText.innerText = "Error uploading image.";
-          cardDisplay.innerHTML = "<p style='color:red;'>❌ Upload or recognition failed.</p>";
+          
+        } else {
+          const errorMsg = result.error || "Could not recognize a valid MTG card";
+          updateStatus(`❌ ${errorMsg}`, "error");
+          setCardBorderState('error');
+          
+          cardDisplay.innerHTML = `
+            <div class="error-message">
+              <strong>Recognition Failed</strong><br>
+              ${errorMsg}<br>
+              <small>Try repositioning the card in better lighting</small>
+            </div>
+          `;
         }
-      }, "image/jpeg");
+        
+      } catch (err) {
+        console.error("Scan failed:", err);
+        const errorMsg = `Scan failed: ${err.message}`;
+        updateStatus(errorMsg, "error");
+        setCardBorderState('error');
+        
+        cardDisplay.innerHTML = `<div class="error-message">${errorMsg}</div>`;
+        
+        updateDebugInfo({
+          error: err.message,
+          stack: err.stack?.substring(0, 200) + "..."
+        });
+        
+      } finally {
+        // Re-enable button
+        snapBtn.disabled = false;
+        snapBtn.innerHTML = "📸 Take Picture";
+      }
+    });
+
+    // Enhanced error handling
+    window.addEventListener('error', (e) => {
+      console.error('Global error:', e.error);
+      updateStatus("Application error occurred", "error");
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('Unhandled promise rejection:', e.reason);
+      updateStatus("Network or processing error", "error");
+    });
+
+    // Add keyboard shortcut for capture (spacebar)
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !snapBtn.disabled) {
+        e.preventDefault();
+        snapBtn.click();
+      }
+    });
+
+    // Visibility change handling (pause processing when tab not visible)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        processing = false;
+      } else if (cap && src && dst) {
+        processing = true;
+        processVideo();
+      }
     });
   </script>
 </body>
