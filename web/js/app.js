@@ -1,4 +1,5 @@
 // js/app.js
+const API_BASE = 'https://mtg-ar-ac5ba1441f06.herokuapp.com/';
 
 const mindarDir = '/tmp/public/assets/mindar';
 const modelsDir = '/tmp/public/assets/models/';
