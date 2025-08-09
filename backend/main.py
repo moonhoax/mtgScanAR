@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import base64
 from typing import List, Optional
-from . import ocr_utils
+import ocr_utils
 import asyncio
 from datetime import datetime
 
