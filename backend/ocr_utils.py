@@ -61,7 +61,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MARKER_DIR = Path("/tmp/public/assets/mindar")
 MODEL_DIR = Path("/tmp/public/assets/models")
 CACHE_DIR = Path("/tmp/cache")
-IMAGE_CACHE_DIR = Path("/tmp/cache/images")
+IMAGE_CACHE = Path("/tmp/cache/images")
 JSON_CACHE = Path("/tmp/cache/json_cache")
 
 #Local DIR for testing
