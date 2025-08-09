@@ -557,17 +557,14 @@ app.mount("/assets", StaticFiles(directory="/tmp/public/assets"), name="assets")
 #app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 
-if __name__ == "__main__":
-    
-import os
-
-# Create necessary directories on startup
-os.makedirs("/tmp/public/assets/mindar", exist_ok=True)
-os.makedirs("/tmp/public/assets/models", exist_ok=True)
-os.makedirs("/tmp/cache/images", exist_ok=True)
-os.makedirs("/tmp/cache/captures", exist_ok=True)
-os.makedirs("/tmp/cache/json_cache", exist_ok=True)
-
+if __name__ == "__main__":    
+    import os
+    # Create necessary directories on startup
+    os.makedirs("/tmp/public/assets/mindar", exist_ok=True)
+    os.makedirs("/tmp/public/assets/models", exist_ok=True)
+    os.makedirs("/tmp/cache/images", exist_ok=True)
+    os.makedirs("/tmp/cache/captures", exist_ok=True)
+    os.makedirs("/tmp/cache/json_cache", exist_ok=True)
     import uvicorn
     print("🚀 Starting Enhanced MTG Card Scanner API v3.0.0")
     print("📊 Features: 5-step OCR pipeline, image hashing, JSON caching, enhanced logging")
