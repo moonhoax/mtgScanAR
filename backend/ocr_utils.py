@@ -58,11 +58,19 @@ def get_timestamped_path(base_dir: Path, base_name: str, ext: str = ".jpg") -> P
 
 # Define directories
 BASE_DIR = Path(__file__).resolve().parent.parent
-MARKER_DIR = BASE_DIR / "public" / "assets" / "mindar"
-MODEL_DIR = BASE_DIR / "public" / "assets" / "models"
-CACHE_DIR = BASE_DIR / "cache"
-IMAGES_CACHE = CACHE_DIR / "images"
-JSON_CACHE = CACHE_DIR / "json_cache"
+MARKER_DIR = Path("/tmp/public/assets/mindar")
+MODEL_DIR = Path("/tmp/public/assets/models")
+CACHE_DIR = Path("/tmp/cache")
+IMAGE_CACHE_DIR = Path("/tmp/cache/images")
+JSON_CACHE = Path("/tmp/cache/json_cache")
+
+#Local DIR for testing
+#MARKER_DIR = BASE_DIR / "public" / "assets" / "mindar"
+#MODEL_DIR = BASE_DIR / "public" / "assets" / "models"
+#CACHE_DIR = BASE_DIR / "cache"
+#IMAGES_CACHE = CACHE_DIR / "images"
+#JSON_CACHE = CACHE_DIR / "json_cache"
+
 
 # Create directories if they don't exist
 for directory in [MARKER_DIR, MODEL_DIR, IMAGES_CACHE, JSON_CACHE]:

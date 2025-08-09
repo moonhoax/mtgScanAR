@@ -5,8 +5,8 @@ import subprocess
 # --- Configuration ---
 SCRYFALL_IMAGE_URL = "https://cards.scryfall.io/normal/front/7/2/721e1b17-888f-462b-9f95-7887fd0b18c6.jpg"  # Example: The One Ring
 CARD_NAME = "The One Ring"
-OUTPUT_DIR = "public/assets/mindar"  # Where .mind files will go
-TEMP_IMAGE_PATH = "temp_card.jpg"
+OUTPUT_DIR = "/tmp/public/assets/mindar"  # Where .mind files will go
+TEMP_IMAGE_PATH = "/tmp/temp_card.jpg"
 
 def sanitize_filename(name):
     return name.lower().replace(" ", "_").replace(",", "").replace("'", "")

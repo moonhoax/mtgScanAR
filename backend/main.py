@@ -13,6 +13,7 @@ import ocr_utils
 import asyncio
 from datetime import datetime
 
+
 app = FastAPI(
     title="MTG Card Scanner Camera API",
     description="Real-time Magic: The Gathering card scanning with camera support and AR integration",
@@ -37,9 +38,9 @@ MAX_WEBSOCKET_CLIENTS = 10  # Max concurrent websocket connections allowed
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent.parent  # Go two levels up from backend/main.py
 WEB_DIR = BASE_DIR / "web"
-IMAGE_CACHE_DIR = BASE_DIR / "cache" / "images"  # Updated to match enhanced script
-CAPTURE_DIR = BASE_DIR / "cache" / "captures"
-JSON_CACHE_DIR = BASE_DIR / "cache" / "json_cache"  # New cache directory
+IMAGE_CACHE_DIR = Path("/tmp/cache/images")
+CAPTURE_DIR = Path("/tmp/cache/captures")
+JSON_CACHE_DIR = Path("/tmp/cache/json_cache")
 
 # Create all required directories
 for directory in [IMAGE_CACHE_DIR, CAPTURE_DIR, JSON_CACHE_DIR]:
@@ -475,7 +476,7 @@ async def debug_ocr_region(region_name: str, file: UploadFile = File(...)):
 async def get_ocr_failures():
     """Get recent OCR failure logs"""
     try:
-        ocr_fails_log = BASE_DIR / "cache" / "ocr_fails.txt"
+        ocr_fails_log = Path("/tmp/cache/ocr_fails.txt")
         if not ocr_fails_log.exists():
             return JSONResponse(content={"failures": []})
         
@@ -494,7 +495,7 @@ async def get_scanner_logs():
     """Get recent scanner attempt logs"""
     try:
         import csv
-        scanner_log = BASE_DIR / "cache" / "scanner_log.csv"
+        scanner_log = Path("/tmp/cache/scanner_log.csv")
         if not scanner_log.exists():
             return JSONResponse(content={"logs": []})
         
@@ -552,11 +553,21 @@ async def health_check():
         }
 
 # Mount static files
-app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
+app.mount("/assets", StaticFiles(directory="/tmp/public/assets"), name="assets")
+#app.mount("/assets", StaticFiles(directory=BASE_DIR / "public" / "assets"), name="assets")
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 
 if __name__ == "__main__":
-    import os
+    
+import os
+
+# Create necessary directories on startup
+os.makedirs("/tmp/public/assets/mindar", exist_ok=True)
+os.makedirs("/tmp/public/assets/models", exist_ok=True)
+os.makedirs("/tmp/cache/images", exist_ok=True)
+os.makedirs("/tmp/cache/captures", exist_ok=True)
+os.makedirs("/tmp/cache/json_cache", exist_ok=True)
+
     import uvicorn
     print("🚀 Starting Enhanced MTG Card Scanner API v3.0.0")
     print("📊 Features: 5-step OCR pipeline, image hashing, JSON caching, enhanced logging")
