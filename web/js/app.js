@@ -1,8 +1,8 @@
 // js/app.js
 
-const mindarDir = 'assets/mindar/';
-const modelsDir = 'assets/models/';
-const dataFile = 'cards.json'; // contains list of scanned cards
+const mindarDir = '/tmp/public/assets/mindar';
+const modelsDir = '/tmp/public/assets/models/';
+const dataFile = '/tmp/cache/cards.json'; // contains list of scanned cards
 
 async function loadCards() {
   const response = await fetch(dataFile);
