@@ -86,9 +86,53 @@ if not SCANNER_LOG.exists():
                         'set_symbol', 'ocr_success', 'cache_hit', 'processing_time'])
 
 # Set Tesseract path (Windows users)
-pytesseract.pytesseract.tesseract_cmd = os.getenv(
-    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+#pytesseract.pytesseract.tesseract_cmd = os.getenv(
+ #   "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+#)
+
+def setup_tesseract_path():
+    """Auto-detect and configure Tesseract path for different environments"""
+    import subprocess
+    import platform
+    
+    # First, try to use system PATH (Linux/Heroku default)
+    try:
+        subprocess.run(['tesseract', '--version'], capture_output=True, check=True)
+        print("✅ Tesseract found in system PATH")
+        return  # Use default PATH
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    # Platform-specific paths
+    system = platform.system().lower()
+    
+    if system == "windows":
+        windows_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+        for path in windows_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                print(f"✅ Tesseract found at: {path}")
+                return
+    elif system == "linux":  # Heroku
+        linux_paths = [
+            "/usr/bin/tesseract",
+            "/usr/local/bin/tesseract",
+            "/app/.apt/usr/bin/tesseract"  # Heroku buildpack path
+        ]
+        for path in linux_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                print(f"✅ Tesseract found at: {path}")
+                return
+    
+    print("❌ Tesseract not found! OCR will not work.")
+
+# Call setup when module loads
+setup_tesseract_path()
+
 
 def log_ocr_failure(error_msg: str, image_path: str = None):
     """Log OCR failures to ocr_fails.txt"""
