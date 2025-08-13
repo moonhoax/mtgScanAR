@@ -338,7 +338,7 @@ def crop_card_region_improved(card_img, region_name, padding=0.02):
 # ENHANCED OCR FUNCTIONS FOR STEPS 3, 4, 5
 # ============================================================================
 
-def enhance_text_for_ocr(img, target_height=100):
+def enhance_text_for_ocr(img, target_height=120):  # CHANGED: increased from 100 to 120
     """Enhanced image processing specifically for text OCR"""
     if img is None or img.size == 0:
         return None
@@ -349,26 +349,52 @@ def enhance_text_for_ocr(img, target_height=100):
     else:
         gray = img.copy()
     
-    # Scale up small images for better OCR
+    # Scale up small images for better OCR (increased target height)
     h, w = gray.shape
     if h < target_height:
         scale_factor = target_height / h
         new_w = int(w * scale_factor)
         gray = cv2.resize(gray, (new_w, target_height), interpolation=cv2.INTER_CUBIC)
     
-    # Noise reduction
-    denoised = cv2.medianBlur(gray, 3)
+    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
     
-    # Adaptive thresholding for better text contrast
-    binary = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+    # Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(enhanced, (1, 1), 0)
+    
+    # Multiple threshold approaches
+    # Method 1: Otsu's thresholding
+    _, binary1 = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Method 2: Adaptive thresholding
+    binary2 = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                    cv2.THRESH_BINARY, 11, 2)
     
-    # Morphological operations to clean up text
+    # Method 3: Manual threshold (for dark text on light background)
+    _, binary3 = cv2.threshold(blurred, 127, 255, cv2.THRESH_BINARY)
+    
+    # Choose the best binary image based on content
+    # Prefer the one with more reasonable text-like structures
+    candidates = [binary1, binary2, binary3]
+    best_binary = binary1  # default
+    
+    # Simple heuristic: choose image with moderate amount of white pixels (text)
+    best_ratio = float('inf')
+    for binary in candidates:
+        white_ratio = np.sum(binary == 255) / (binary.shape[0] * binary.shape[1])
+        # Good text should have 10-70% white pixels
+        if 0.1 <= white_ratio <= 0.7:
+            ratio_distance = abs(white_ratio - 0.3)  # ideal around 30%
+            if ratio_distance < best_ratio:
+                best_ratio = ratio_distance
+                best_binary = binary
+    
+    # Light morphological cleaning
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
-    cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    cleaned = cv2.morphologyEx(best_binary, cv2.MORPH_CLOSE, kernel)
     
     return cleaned
-
 # --- Updated OCR with integrated cleanup ---
 def perform_ocr_with_confidence(img, region_name: str, psm_modes=[7, 8, 13]) -> Tuple[str, float]:
     if img is None:
@@ -387,7 +413,8 @@ def perform_ocr_with_confidence(img, region_name: str, psm_modes=[7, 8, 13]) -> 
 
         try:
             data = pytesseract.image_to_data(enhanced, config=config, output_type=pytesseract.Output.DICT)
-        except:
+        except Exception as e:
+            print(f"⚠️ OCR failed for PSM {psm}: {e}")
             continue
 
         words, confidences = [], []
@@ -406,16 +433,15 @@ def perform_ocr_with_confidence(img, region_name: str, psm_modes=[7, 8, 13]) -> 
             if avg_conf > best_conf:
                 best_text, best_conf = joined_text, avg_conf
 
-    # --- Integrated cleanup step ---
-    if region_name == 'card_name':
+    # --- Fixed cleanup step with correct region_name mapping ---
+    if region_name in ['title', 'card_name']:  # FIXED: added 'title'
         best_text = fuzzy_correct(clean_text_basic(best_text), CARD_NAMES)
-    elif region_name == 'card_type':
+    elif region_name in ['type_line', 'card_type']:  # FIXED: added 'type_line' 
         best_text = fuzzy_correct(clean_text_basic(best_text), CARD_TYPES)
     elif region_name == 'mana_cost':
         best_text = normalize_mana_cost(best_text)
 
     return best_text, best_conf
-
 
 # ============================================================================
 # ENHANCED PROCESSING PIPELINE WITH STEPS 3, 4, 5
@@ -468,7 +494,7 @@ def process_capture_image_enhanced(image_path):
     gray_crop = cv2.cvtColor(card_crop, cv2.COLOR_BGR2GRAY)
 
     # Step 02: Increase contrast by 45%
-    contrast_crop = cv2.convertScaleAbs(gray_crop, alpha=1.45, beta=0)
+    contrast_crop = cv2.convertScaleAbs(gray_crop, alpha=1.25, beta=0)  # Reduced from 1.45
 
     # Optional Step 03: Adaptive threshold for binarization
     thresh_crop = cv2.adaptiveThreshold(
@@ -502,7 +528,7 @@ def process_capture_image_enhanced(image_path):
         print("⚠️ STEP 2: No set symbol detected")
     
     # STEP 3: Card type area OCR
-    print("🔄 STEP 3: Card type detection...")
+   print("🔄 STEP 3: Card type detection...")
     type_crop = crop_card_region_improved(contrast_crop, 'type_line', padding=0.04)
     card_type_text = ""
     type_confidence = 0.0
@@ -510,13 +536,14 @@ def process_capture_image_enhanced(image_path):
     if type_crop is not None:
         step3_path = IMAGES_CACHE / f"step3_card_type_{timestamp}.jpg"
         cv2.imwrite(str(step3_path), type_crop)
+        # FIX: Pass type_crop instead of contrast_crop
         card_type_text, type_confidence = perform_ocr_with_confidence(type_crop, 'type_line')
         print(f"✅ STEP 3 Complete: Card type '{card_type_text}' (confidence: {type_confidence:.1f}%)")
     else:
         error_msg = "STEP 3: Card type crop failed"
         log_ocr_failure(error_msg, str(image_path))
         print(f"❌ {error_msg}")
-    
+
     # STEP 4: Card name OCR
     print("🔄 STEP 4: Card name detection...")
     title_crop = crop_card_region_improved(contrast_crop, 'title', padding=0.02)
@@ -526,7 +553,8 @@ def process_capture_image_enhanced(image_path):
     if title_crop is not None:
         step4_path = IMAGES_CACHE / f"step4_card_name_{timestamp}.jpg"
         cv2.imwrite(str(step4_path), title_crop)
-        card_name_text, name_confidence = perform_ocr_with_confidence(contrast_crop, 'title')
+        # FIX: Pass title_crop instead of contrast_crop, and use correct region_name
+        card_name_text, name_confidence = perform_ocr_with_confidence(title_crop, 'title')
         print(f"✅ STEP 4 Complete: Card name '{card_name_text}' (confidence: {name_confidence:.1f}%)")
     else:
         error_msg = "STEP 4: Card name crop failed"
@@ -542,6 +570,7 @@ def process_capture_image_enhanced(image_path):
     if mana_crop is not None:
         step5_path = IMAGES_CACHE / f"step5_mana_cost_{timestamp}.jpg"
         cv2.imwrite(str(step5_path), mana_crop)
+        # FIX: Pass mana_crop instead of contrast_crop
         mana_cost_text, mana_confidence = perform_ocr_with_confidence(mana_crop, 'mana_cost')
         print(f"✅ STEP 5 Complete: Mana cost '{mana_cost_text}' (confidence: {mana_confidence:.1f}%)")
     else:
@@ -937,6 +966,77 @@ def crop_card_region(img, bleed_ratio=0.1):
 def crop_title_area(card_img, crop_ratio=0.18):
     """LEGACY: Better title area cropping."""
     return crop_card_region_improved(card_img, 'title', padding=0.02)
+
+def debug_ocr_step_by_step(image_path, save_debug=True):
+    """Debug OCR by processing each step and saving intermediate results"""
+    print(f"🔍 Debug OCR for: {image_path}")
+    
+    img = cv2.imread(str(image_path))
+    if img is None:
+        print("❌ Could not load image")
+        return
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Step 1: UI-guided crop
+    print("Step 1: UI-guided crop...")
+    card_crop = crop_ui_guided_card_area(img)
+    if card_crop is None:
+        print("❌ UI-guided crop failed")
+        return
+    
+    if save_debug:
+        debug_path = IMAGES_CACHE / f"debug_01_card_crop_{timestamp}.jpg"
+        cv2.imwrite(str(debug_path), card_crop)
+        print(f"💾 Saved: {debug_path}")
+    
+    # Step 2: Preprocessing
+    print("Step 2: Preprocessing...")
+    gray_crop = cv2.cvtColor(card_crop, cv2.COLOR_BGR2GRAY)
+    contrast_crop = cv2.convertScaleAbs(gray_crop, alpha=1.25, beta=0)
+    
+    if save_debug:
+        gray_path = IMAGES_CACHE / f"debug_02_gray_{timestamp}.jpg"
+        contrast_path = IMAGES_CACHE / f"debug_03_contrast_{timestamp}.jpg"
+        cv2.imwrite(str(gray_path), gray_crop)
+        cv2.imwrite(str(contrast_path), contrast_crop)
+        print(f"💾 Saved: {gray_path} and {contrast_path}")
+    
+    # Step 3: Test each region
+    regions = [
+        ('title', 'Card Name'),
+        ('mana_cost', 'Mana Cost'), 
+        ('type_line', 'Type Line')
+    ]
+    
+    for region_name, display_name in regions:
+        print(f"\n🔍 Testing region: {display_name} ({region_name})")
+        region_crop = crop_card_region_improved(contrast_crop, region_name, padding=0.04)
+        
+        if region_crop is None:
+            print(f"❌ {display_name} crop failed")
+            continue
+            
+        if save_debug:
+            crop_path = IMAGES_CACHE / f"debug_04_{region_name}_crop_{timestamp}.jpg"
+            cv2.imwrite(str(crop_path), region_crop)
+            print(f"💾 Saved crop: {crop_path}")
+        
+        # Test OCR enhancement
+        enhanced = enhance_text_for_ocr(region_crop)
+        if enhanced is not None and save_debug:
+            enhanced_path = IMAGES_CACHE / f"debug_05_{region_name}_enhanced_{timestamp}.jpg"
+            cv2.imwrite(str(enhanced_path), enhanced)
+            print(f"💾 Saved enhanced: {enhanced_path}")
+        
+        # Test OCR
+        text, confidence = perform_ocr_with_confidence(region_crop, region_name)
+        print(f"   📝 Result: '{text}' (confidence: {confidence:.1f}%)")
+        
+        if confidence < 30:
+            print(f"   ⚠️  Low confidence for {display_name}")
+    
+    print(f"\n✅ Debug complete! Check {IMAGES_CACHE} for saved images")
 
 # ============================================================================
 # EXAMPLE USAGE AND TESTING
