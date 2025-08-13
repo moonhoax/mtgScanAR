@@ -528,7 +528,7 @@ def process_capture_image_enhanced(image_path):
         print("⚠️ STEP 2: No set symbol detected")
     
     # STEP 3: Card type area OCR
-   print("🔄 STEP 3: Card type detection...")
+    print("🔄 STEP 3: Card type detection...")
     type_crop = crop_card_region_improved(contrast_crop, 'type_line', padding=0.04)
     card_type_text = ""
     type_confidence = 0.0
