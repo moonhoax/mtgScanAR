@@ -90,49 +90,11 @@ if not SCANNER_LOG.exists():
  #   "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 #)
 
-def setup_tesseract_path():
-    """Auto-detect and configure Tesseract path for different environments"""
-    import subprocess
-    import platform
-    
-    # First, try to use system PATH (Linux/Heroku default)
-    try:
-        subprocess.run(['tesseract', '--version'], capture_output=True, check=True)
-        print("✅ Tesseract found in system PATH")
-        return  # Use default PATH
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-    
-    # Platform-specific paths
-    system = platform.system().lower()
-    
-    if system == "windows":
-        windows_paths = [
-            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-        ]
-        for path in windows_paths:
-            if os.path.exists(path):
-                pytesseract.pytesseract.tesseract_cmd = path
-                print(f"✅ Tesseract found at: {path}")
-                return
-    elif system == "linux":  # Heroku
-        linux_paths = [
-            "/usr/bin/tesseract",
-            "/usr/local/bin/tesseract",
-            "/app/.apt/usr/bin/tesseract"  # Heroku buildpack path
-        ]
-        for path in linux_paths:
-            if os.path.exists(path):
-                pytesseract.pytesseract.tesseract_cmd = path
-                print(f"✅ Tesseract found at: {path}")
-                return
-    
-    print("❌ Tesseract not found! OCR will not work.")
+# Point pytesseract to the Tesseract binary installed by the buildpack
+pytesseract.pytesseract.tesseract_cmd = "/app/.apt/usr/bin/tesseract"
 
-# Call setup when module loads
-setup_tesseract_path()
-
+# Ensure TESSDATA_PREFIX is available in Python environment
+os.environ["TESSDATA_PREFIX"] = "/app/.apt/usr/share/tesseract-ocr/5/tessdata/"
 
 def log_ocr_failure(error_msg: str, image_path: str = None):
     """Log OCR failures to ocr_fails.txt"""
