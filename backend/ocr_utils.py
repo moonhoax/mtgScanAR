@@ -484,10 +484,12 @@ def process_capture_image_enhanced(image_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     step1_path = IMAGES_CACHE / f"step1_card_crop_{timestamp}.jpg"
     cv2.imwrite(str(step1_path), card_crop)
+
+
     
     # STEP 2: Enhanced set symbol detection
     print("🔄 STEP 2: Set symbol detection...")
-    symbol_candidates = enhanced_set_symbol_detection(card_crop, debug_save=True)
+    symbol_candidates = enhanced_set_symbol_detection(contrast_crop, debug_save=True)
     best_symbol_crop = None
     set_symbol_text = ""
     
@@ -501,7 +503,7 @@ def process_capture_image_enhanced(image_path):
     
     # STEP 3: Card type area OCR
     print("🔄 STEP 3: Card type detection...")
-    type_crop = crop_card_region_improved(card_crop, 'type_line', padding=0.04)
+    type_crop = crop_card_region_improved(contrast_crop, 'type_line', padding=0.04)
     card_type_text = ""
     type_confidence = 0.0
     
@@ -517,14 +519,14 @@ def process_capture_image_enhanced(image_path):
     
     # STEP 4: Card name OCR
     print("🔄 STEP 4: Card name detection...")
-    title_crop = crop_card_region_improved(card_crop, 'title', padding=0.02)
+    title_crop = crop_card_region_improved(contrast_crop, 'title', padding=0.02)
     card_name_text = ""
     name_confidence = 0.0
     
     if title_crop is not None:
         step4_path = IMAGES_CACHE / f"step4_card_name_{timestamp}.jpg"
         cv2.imwrite(str(step4_path), title_crop)
-        card_name_text, name_confidence = perform_ocr_with_confidence(title_crop, 'title')
+        card_name_text, name_confidence = perform_ocr_with_confidence(contrast_crop, 'title')
         print(f"✅ STEP 4 Complete: Card name '{card_name_text}' (confidence: {name_confidence:.1f}%)")
     else:
         error_msg = "STEP 4: Card name crop failed"
@@ -533,7 +535,7 @@ def process_capture_image_enhanced(image_path):
     
     # STEP 5: Mana cost OCR
     print("🔄 STEP 5: Mana cost detection...")
-    mana_crop = crop_card_region_improved(card_crop, 'mana_cost', padding=0.02)
+    mana_crop = crop_card_region_improved(contrast_crop, 'mana_cost', padding=0.02)
     mana_cost_text = ""
     mana_confidence = 0.0
     
