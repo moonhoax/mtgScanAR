@@ -36,7 +36,6 @@ def clean_text_basic(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-
 def fuzzy_correct(text: str, reference_set: set, threshold: int = 80) -> str:
     """Fuzzy match OCR text against a reference set and replace if above threshold."""
     if not text or not reference_set:
@@ -48,7 +47,6 @@ def normalize_mana_cost(text: str) -> str:
     """Keep only mana cost symbols and numbers."""
     text = re.sub(r"[^0-9WUBRGXYZ{}]", "", text.upper())
     return text
-
 
 # Helper to generate unique timestamped filenames
 def get_timestamped_path(base_dir: Path, base_name: str, ext: str = ".jpg") -> Path:
@@ -463,7 +461,26 @@ def process_capture_image_enhanced(image_path):
         cached_result['image_hash'] = image_hash
         return cached_result
     
-    # Save Step 1 image
+
+
+
+    # Step 01: Convert to grayscale
+    gray_crop = cv2.cvtColor(card_crop, cv2.COLOR_BGR2GRAY)
+
+    # Step 02: Increase contrast by 45%
+    contrast_crop = cv2.convertScaleAbs(gray_crop, alpha=1.45, beta=0)
+
+    # Optional Step 03: Adaptive threshold for binarization
+    thresh_crop = cv2.adaptiveThreshold(
+        contrast_crop,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11,
+        2
+    )
+
+    # Save the preprocessed image for debugging
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     step1_path = IMAGES_CACHE / f"step1_card_crop_{timestamp}.jpg"
     cv2.imwrite(str(step1_path), card_crop)
